@@ -20,7 +20,7 @@ public class RIOTDatabase {
         }
     }
 
-    public static final String DB_NAME = "tester2.db";
+    public static final String DB_NAME = "RIOTDatabase.db";
 
     static final String USER_TABLE = "CREATE TABLE user(name TEXT NOT NULL," +
             "user_id INT PRIMARY KEY NOT NULL);";
