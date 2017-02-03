@@ -137,30 +137,4 @@ public class RIOTDatabase {
 
         return count;
     }
-
-    /**
-     * Deletes a row with the given ID number in the 'id' column from a table.
-     * Can only be used on tables that include an 'id' column.
-     * The SQLite JDBC does not implement row deletion.  This must be done
-     * manually.
-     * @return True if the process exited successfully.
-     */
-    public static boolean deleteRowByID(String tableName, int ID) throws InterruptedException {
-        ProcessBuilder processBuilder = new ProcessBuilder("/bin/sh", "-c",
-                "sqlite3 " + DB_NAME + " 'BEGIN; PRAGMA JOURNAL=WAL; DELETE FROM " + tableName +
-                        " WHERE id = " + ID + "'; END TRANSACTION;");
-        processBuilder.inheritIO();
-        try {
-            Process process = processBuilder.start();
-            int exitCode = process.waitFor();
-            // exit code is 0 if process completed successfully
-            if (exitCode == 0) {
-                return true;
-            }
-        } catch (IOException ex) {
-            // TODO: Remove stack trace after testing.
-            ex.printStackTrace();
-        }
-        return false;
-    }
 }

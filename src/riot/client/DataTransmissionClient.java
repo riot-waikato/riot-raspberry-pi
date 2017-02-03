@@ -82,6 +82,10 @@ public class DataTransmissionClient implements Runnable {
                     int count = RIOTDatabase.getCount(mDBConnection, "lux");
                     System.out.println("DataTransmissionClient found " + count + " rows.");
                     if (count > 0) {
+                        String deleteFromLux = "DELETE FROM lux WHERE id = ?";
+                        String deleteFromEntry = "DELETE FROM entry WHERE id = ?";
+                        PreparedStatement deleteLuxStmt = mDBConnection.prepareStatement(deleteFromLux);
+                        PreparedStatement deleteEntryStmt = mDBConnection.prepareStatement(deleteFromEntry);
                         System.out.println("Opening socket to server.");
                         socket = new Socket(mServerIP, mServerPort);
                         System.out.println("Opened socket.");
@@ -94,8 +98,10 @@ public class DataTransmissionClient implements Runnable {
                             socketWriter.flush();
                             int id = results.getInt("id");
                             System.out.println("Deleting id " + id);
-                            RIOTDatabase.deleteRowByID("lux", id);
-                            RIOTDatabase.deleteRowByID("entry", id);
+                            deleteLuxStmt.setInt(1, id);
+                            deleteLuxStmt.execute();
+                            deleteEntryStmt.setInt(1, id);
+                            deleteEntryStmt.execute();
                         }
                     }
                 } catch (IOException ex) {
