@@ -68,6 +68,8 @@ public class DataTransmissionClient implements Runnable {
                         if (mConnection.establishConnection()) {
                             System.out.println("Connecting to target...");
                             Thread.sleep(5000);
+                        } else {
+                            System.out.println("Cannot connect to target...");
                         }
                     } catch (IOException ex) {
                         System.err.println("Could not connect to target network: " + mConnection.mTargetSSID);
@@ -75,33 +77,45 @@ public class DataTransmissionClient implements Runnable {
                 }
                 System.out.println("Connected to target Wifi AP.");
 
-                Socket socket = null;
                 try {
-                    Statement statement = mDBConnection.createStatement();
                     System.out.println("Querying database.");
                     int count = RIOTDatabase.getCount(mDBConnection, "lux");
                     System.out.println("DataTransmissionClient found " + count + " rows.");
                     if (count > 0) {
                         String deleteFromLux = "DELETE FROM lux WHERE id = ?";
                         String deleteFromEntry = "DELETE FROM entry WHERE id = ?";
-                        PreparedStatement deleteLuxStmt = mDBConnection.prepareStatement(deleteFromLux);
-                        PreparedStatement deleteEntryStmt = mDBConnection.prepareStatement(deleteFromEntry);
-                        System.out.println("Opening socket to server.");
-                        socket = new Socket(mServerIP, mServerPort);
-                        System.out.println("Opened socket.");
-                        ResultSet results = statement.executeQuery(RIOTDatabase.LUX_QUERY);
-                        PrintWriter socketWriter = new PrintWriter(socket.getOutputStream(), true);
-                        while (results.next()) {
-                            socketWriter.println("LUX " + results.getString("dev_id") +
-                                    " " + results.getInt("id") +
-                                    " " + results.getFloat("lux"));
-                            socketWriter.flush();
-                            int id = results.getInt("id");
-                            System.out.println("Deleting id " + id);
-                            deleteLuxStmt.setInt(1, id);
-                            deleteLuxStmt.execute();
-                            deleteEntryStmt.setInt(1, id);
-                            deleteEntryStmt.execute();
+
+                        // Declare all AutoCloseable resources needed to send data from
+                        // database to server.
+                        // TODO: Is there a way that is easier to read?
+                        try (// Socket-side declarations
+                             Socket socket = new Socket(mServerIP, mServerPort);
+                             PrintWriter socketWriter = new PrintWriter(socket.getOutputStream(), true);
+
+                             // Database-side declarations
+                             Statement luxQuery = mDBConnection.createStatement();
+                             ResultSet results = luxQuery.executeQuery(RIOTDatabase.LUX_QUERY);
+                             PreparedStatement deleteLuxStmt = mDBConnection.prepareStatement(deleteFromLux);
+                             PreparedStatement deleteEntryStmt = mDBConnection.prepareStatement(deleteFromEntry);
+                        ) {
+
+                            // Retrieve data to transmit from database.
+                            while (results.next()) {
+
+                                // Transmit data.
+                                socketWriter.println("LUX " + results.getString("dev_id") +
+                                        " " + results.getInt("id") +
+                                        " " + results.getFloat("lux"));
+                                socketWriter.flush();
+
+                                // Delete data.
+                                int id = results.getInt("id");
+                                System.out.println("Deleting id " + id);
+                                deleteLuxStmt.setInt(1, id);
+                                deleteLuxStmt.execute();
+                                deleteEntryStmt.setInt(1, id);
+                                deleteEntryStmt.execute();
+                            }
                         }
                     }
                 } catch (IOException ex) {
@@ -112,21 +126,12 @@ public class DataTransmissionClient implements Runnable {
                     closeDatabaseConnection();
                     ex.printStackTrace();
                     return;
-                } finally {
-                    try {
-                        if (socket != null && !socket.isClosed()) {
-                            socket.close();
-                        }
-                    } catch (Exception ex) {
-                        // Ignore exceptions
-                    }
                 }
                 Thread.sleep(5000);
             }
         } catch (InterruptedException ex) {
             closeDatabaseConnection();
             System.err.println("DataTransmissionClient was interrupted.");
-            return;
         }
     }
 
