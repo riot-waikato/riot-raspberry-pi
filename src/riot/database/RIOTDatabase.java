@@ -6,9 +6,29 @@ import java.io.IOException;
 import java.sql.*;
 
 /**
+ * Represents the RIOT database which is present on any devices that store sensor data.  Contains
+ * table definitions and default configuration.
+ * <p>
+ * Requires a JDBC to connect to the database. Should work on any platform as long as
+ * a JDBC exists.
+ * <p>
+ * Tested with this one on Raspberry Pi and Windows:
+ * https://github.com/xerial/sqlite-jdbc
+ * <p>
  * Created by marianne on 24/01/17.
  */
 public class RIOTDatabase {
+
+    /**
+     * Get a new connection to the default RIOT database on this device with the correct
+     * configuration.
+     *
+     * @return
+     * @throws SQLException
+     */
+    public static Connection getNewConnection() throws SQLException {
+        return DriverManager.getConnection("jdbc:sqlite:" + DB_NAME, config.toProperties());
+    }
 
     static class Table {
         public String mName;
@@ -22,17 +42,17 @@ public class RIOTDatabase {
 
     public static final String DB_NAME = "RIOTDatabase.db";
 
-    static final String USER_TABLE = "CREATE TABLE user(name TEXT NOT NULL," +
+    static final String USER_TABLE = "CREATE TABLE IF NOT EXISTS user(name TEXT NOT NULL," +
             "user_id INT PRIMARY KEY NOT NULL);";
-    static final String DEV_TABLE = "CREATE TABLE dev(_id INT NOT NULL," +
+    static final String DEV_TABLE = "CREATE TABLE IF NOT EXISTS dev(_id INT NOT NULL," +
             "dev_id TEXT PRIMARY KEY NOT NULL," +
             "foreign key(_id) references user(id));";
-    static final String ENTRY_TABLE = "CREATE TABLE entry (entry_date DATE NOT NULL," +
+    static final String ENTRY_TABLE = "CREATE TABLE IF NOT EXISTS entry (entry_date DATE NOT NULL," +
             "real_date DATE NOT NULL," +
             "dev_id TEXT NOT NULL," +
             "id INT PRIMARY KEY NOT NULL," +
             "foreign key(dev_id) references dev(dev_id));";
-    static final String MOTION_TABLE = "CREATE TABLE motion(gx REAL NOT NULL," +
+    static final String MOTION_TABLE = "CREATE TABLE IF NOT EXISTS motion(gx REAL NOT NULL," +
             "gy REAL NOT NULL," +
             "gz REAL NOT NULL," +
             "ax REAL NOT NULL," +
@@ -43,7 +63,7 @@ public class RIOTDatabase {
             "int REAL NOT NULL," +
             "entry_id INT NOT NULL," +
             "foreign key(entry_id) references entry(id));";
-    public static final String LUX_TABLE = "CREATE TABLE lux(lux REAL NOT NULL," +
+    public static final String LUX_TABLE = "CREATE TABLE IF NOT EXISTS lux(lux REAL NOT NULL," +
             "id INT NOT NULL," +
             "foreign key(id) references entry(id));";
 
@@ -68,50 +88,29 @@ public class RIOTDatabase {
 
     /**
      * Pre-configured settings used when connecting to the database.
+     * Sets journal mode as WRITE AHEAD LOGGING and enforces foreign keys.
      */
-    public static SQLiteConfig config = new SQLiteConfig();
+    static SQLiteConfig config = new SQLiteConfig();
 
     static {
         config.setJournalMode(SQLiteConfig.JournalMode.WAL);
         config.enforceForeignKeys(true);
     }
 
-    public static boolean verifyDatabaseStructure(Connection connection) throws SQLException {
-        for (Table table : tables) {
-            if (!tableExists(connection, table.mName)) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    public static boolean tableExists(Connection connection, String tableName) throws SQLException {
-        if (connection != null && !connection.isClosed()) {
-            DatabaseMetaData metaData = connection.getMetaData();
-            ResultSet res = metaData.getTables(null, null,
-                    tableName, null);
-
-            // getTables will return all tables that contain table name so check them all
-            while (res.next()) {
-                if (res.getString("TABLE_NAME").matches(tableName)) {
-                    return true;
-                }
-            }
-        }
-
-        return false;
-    }
-
+    /**
+     * Runs all create table statements. The create statements should all include
+     * 'IF NOT EXISTS' to avoid unnecessary errors.
+     * @param connection
+     * @return
+     * @throws SQLException
+     */
     public static boolean createTables(Connection connection) throws SQLException {
         Statement statement = connection.createStatement();
         for (Table table : tables) {
-            if (!tableExists(connection, table.mName)) {
-                System.out.println("Creating table " + table.mName);
-                try {
-                    statement.executeUpdate(table.mCreateStatement);
-                } catch (SQLException ex) {
-                    System.err.println("Could not create table: " + table.mName);
-                }
+            try {
+                statement.executeUpdate(table.mCreateStatement);
+            } catch (SQLException ex) {
+                System.err.println("Could not create table: " + table.mName);
             }
         }
         return true;

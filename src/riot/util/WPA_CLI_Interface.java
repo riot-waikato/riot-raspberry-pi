@@ -118,7 +118,7 @@ public class WPA_CLI_Interface {
                 "wpa_cli -i " + interfaceName + " set_network " + networkNumber +
                 " " + property + " \'\"" + value + "\"\'");
         Process process = processBuilder.start();
-        if (!isProcessOutput(process, "OK")) {
+        if (!CLI_Interface_Utils.isProcessOutput(process, "OK")) {
             System.err.println("set_network failed");
             System.err.println("\t" + processBuilder.command());
         }
@@ -137,7 +137,7 @@ public class WPA_CLI_Interface {
         ProcessBuilder processBuilder = new ProcessBuilder("/bin/sh", "-c",
                 "wpa_cli -i " + interfaceName + " enable_network " + networkNumber);
         Process process = processBuilder.start();
-        if (!isProcessOutput(process, "OK")) {
+        if (!CLI_Interface_Utils.isProcessOutput(process, "OK")) {
             System.err.println("enable_network failed");
             System.err.println("\t" + processBuilder.command());
         }
@@ -166,7 +166,7 @@ public class WPA_CLI_Interface {
         ProcessBuilder processBuilder = new ProcessBuilder("/bin/sh", "-c",
                 "wpa_cli -i " + interfaceName + " remove_network " + networkNumber);
         Process process = processBuilder.start();
-        if (!isProcessOutput(process, "OK")) {
+        if (!CLI_Interface_Utils.isProcessOutput(process, "OK")) {
             System.err.println("remove_network failed");
             System.err.println("\t" + processBuilder.command());
         }
@@ -242,21 +242,12 @@ public class WPA_CLI_Interface {
         }
     }
 
-    public static boolean isProcessOutput(Process process, String output) {
-        try (BufferedReader processReader =
-                     new BufferedReader(new InputStreamReader(process.getInputStream()))) {
-            String line = processReader.readLine();
-            if (line != null && line.matches(output)) {
-                return true;
-            }
-
-            return false;
-        } catch (IOException ex) {
-            ex.printStackTrace();
-            return false;
-        }
-    }
-
+    /**
+     * Removes all networks from the WPA list of networks.
+     * @param interfaceName
+     * @throws InterruptedException
+     * @throws IOException
+     */
     public static void removeAllNetworks(String interfaceName)
             throws InterruptedException, IOException {
         ArrayList<Network> networks = list_networks(interfaceName);
@@ -271,7 +262,7 @@ public class WPA_CLI_Interface {
             ProcessBuilder processBuilder = new ProcessBuilder("/bin/sh", "-c",
                     "wpa_cli -i " + interfaceName + " disable_network " + networkNumber);
             Process process = processBuilder.start();
-            if (!isProcessOutput(process, "OK")) {
+            if (!CLI_Interface_Utils.isProcessOutput(process, "OK")) {
                 System.err.println("disable_network failed");
                 System.err.println("\t" + processBuilder.command());
             }

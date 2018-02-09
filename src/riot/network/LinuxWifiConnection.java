@@ -10,6 +10,9 @@ import java.util.ArrayList;
 
 /**
  * Monitors a Wifi connection using the Linux command line.
+ *
+ * Requires wpa_supplicant.
+ *
  * Created by marianne on 19/01/17.
  */
 public class LinuxWifiConnection extends LinuxNetworkConnection {
@@ -78,6 +81,12 @@ public class LinuxWifiConnection extends LinuxNetworkConnection {
         return getConnectionSSID().equals(mTargetSSID);
     }
 
+    /**
+     * Attempts to establish a connection to the Wifi network with the target SSID.
+     * @return
+     * @throws InterruptedException
+     * @throws IOException
+     */
     public boolean establishConnection() throws InterruptedException, IOException {
         int index = WPA_CLI_Interface.getIndexOfNetwork(mAdapterName, mTargetSSID);  // network index
         if (index == -1) {
@@ -89,16 +98,21 @@ public class LinuxWifiConnection extends LinuxNetworkConnection {
                 System.err.println("\t" + mAdapterName);
                 return false;
             }
+
+            // set desired network
             if (!WPA_CLI_Interface.set_network(mAdapterName, index, "ssid", mTargetSSID)) {
                 System.err.println("Failed to set network SSID...");
                 return false;
             }
+
+            // set password
             if (!WPA_CLI_Interface.set_network(mAdapterName, index, "psk", mPSK)) {
                 System.err.println("Failed to set pre-shared key...");
                 return false;
             }
         }
 
+        // If the SSID is not the target SSID disable that network
         String SSID = getConnectionSSID();
         if (!isConnected() && !SSID.isEmpty()) {
             System.out.println("Disabling network: " + SSID);
@@ -107,15 +121,23 @@ public class LinuxWifiConnection extends LinuxNetworkConnection {
             }
         }
 
+        // Enable target SSID network.
         System.out.println("Enabling network " + mTargetSSID);
         if (!WPA_CLI_Interface.enable_network(mAdapterName, index)) {
             System.err.println("Network could not be enabled...");
+
+            // Attempt to connect failed.
             return false;
         }
 
+        // Currently connecting.
         return true;
     }
 
+    /**
+     * FOR TESTING THIS CLASS ONLY.
+     * @param args
+     */
     public static void main(String[] args) {
         System.out.println(getInterfaceNames());
         try {
@@ -123,6 +145,7 @@ public class LinuxWifiConnection extends LinuxNetworkConnection {
             System.out.println(test.isConnected());
             System.out.println("Connected to: " + test.getConnectionSSID());
 
+            // TODO: Find out how to give permission for list_networks to be run.
             ArrayList<WPA_CLI_Interface.Network> networkList = WPA_CLI_Interface.list_networks("wlp9s0");
             for (WPA_CLI_Interface.Network network : networkList) {
                 System.out.println(network.mNetworkID + " : " + network.mSSID + " : " + network.mBSSID + " : " + network.mFlags);
